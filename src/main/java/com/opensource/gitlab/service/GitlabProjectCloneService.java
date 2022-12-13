@@ -51,7 +51,10 @@ public class GitlabProjectCloneService {
             e.printStackTrace();
         }
         for (GitGroup group : groups) {
-            List<GitProject> projects = getProjectsByGroup(group.getName());
+            if (!group.getName().startsWith("group-api")){
+                continue;
+            }
+            List<GitProject> projects = getProjectsByGroup(group.getId().toString());
             for (GitProject project : projects) {
                 String lastActivityBranchName = getLastActivityBranchName(project.getId());
                 if (StringUtils.isEmpty(lastActivityBranchName)) {
@@ -90,13 +93,13 @@ public class GitlabProjectCloneService {
     /**
      * 获取指定分组下的项目
      *
-     * @param group
+     * @param groupId
      * @return
      */
-    private List<GitProject> getProjectsByGroup(String group) {
+    private List<GitProject> getProjectsByGroup(String groupId) {
         String url = gitlabUrl + "/api/v3/groups/{group}/projects?per_page={per_page}&private_token={private_token}";
         Map<String, String> uriVariables = new HashMap<>();
-        uriVariables.put("group", group);
+        uriVariables.put("group", groupId);
         uriVariables.put("per_page", "100");
         uriVariables.put("private_token", privateToken);
         HttpHeaders headers = new HttpHeaders();
@@ -191,7 +194,8 @@ public class GitlabProjectCloneService {
     }
 
     private void clone(String branchName, GitProject gitProject, File execDir) {
-        String command = String.format("git clone -b %s %s %s", branchName, gitProject.getHttpUrlToRepo(), gitProject.getPathWithNamespace());
+        boolean isSshUrl = true;
+        String command = String.format("git clone -b %s %s %s", branchName, isSshUrl ? gitProject.getSshUrlToRepo() : gitProject.getHttpUrlToRepo(), gitProject.getPathWithNamespace());
         System.out.println("start exec command : " + command);
         try {
             Process exec = Runtime.getRuntime().exec(command, null, execDir);
