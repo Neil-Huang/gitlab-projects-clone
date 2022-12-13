@@ -35,6 +35,9 @@ public class GitlabProjectCloneService {
     @Value("${git.projectDir}")
     private String projectDir;
 
+    @Value("${git.isCloneBySshUrl}")
+    private Boolean isCloneBySshUrl;
+
     ObjectMapper objectMapper = new ObjectMapper();
 
     @Autowired
@@ -51,18 +54,26 @@ public class GitlabProjectCloneService {
             e.printStackTrace();
         }
         for (GitGroup group : groups) {
-            if (!group.getName().startsWith("group-api")){
+            if (group.getName().equals("product")){
+                //不clone产品文档和UI图项目
                 continue;
             }
-            List<GitProject> projects = getProjectsByGroup(group.getId().toString());
-            for (GitProject project : projects) {
-                String lastActivityBranchName = getLastActivityBranchName(project.getId());
-                if (StringUtils.isEmpty(lastActivityBranchName)) {
-                    System.out.println("branches is empty, break project...");
-                    continue;
+            try {
+                List<GitProject> projects = getProjectsByGroup(group.getId().toString());
+                for (GitProject project : projects) {
+                    String lastActivityBranchName = getLastActivityBranchName(project.getId());
+                    if (StringUtils.isEmpty(lastActivityBranchName)) {
+                        System.out.println("branches is empty, break project...");
+                        continue;
+                    }
+                    clone(lastActivityBranchName, project, execDir);
                 }
-                clone(lastActivityBranchName, project, execDir);
+
+                Thread.sleep(1000);
+            }catch (Exception ex){
+                System.out.println("########################## "+group.getName()+"出现错误 ##########################");
             }
+
         }
         System.out.println("end get gitlab projects");
     }
@@ -194,8 +205,8 @@ public class GitlabProjectCloneService {
     }
 
     private void clone(String branchName, GitProject gitProject, File execDir) {
-        boolean isSshUrl = true;
-        String command = String.format("git clone -b %s %s %s", branchName, isSshUrl ? gitProject.getSshUrlToRepo() : gitProject.getHttpUrlToRepo(), gitProject.getPathWithNamespace());
+        isCloneBySshUrl = isCloneBySshUrl == null ? false : isCloneBySshUrl;
+        String command = String.format("git clone -b %s %s %s", branchName, isCloneBySshUrl ? gitProject.getSshUrlToRepo() : gitProject.getHttpUrlToRepo(), gitProject.getPathWithNamespace());
         System.out.println("start exec command : " + command);
         try {
             Process exec = Runtime.getRuntime().exec(command, null, execDir);
